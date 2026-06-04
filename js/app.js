@@ -417,16 +417,21 @@ const CustomPlayer = {
         document.addEventListener('mouseup', () => this.endSeek());
         document.addEventListener('touchend', () => this.endSeek());
 
-        video.addEventListener('play', () => this.renderPlayBtn());
-        video.addEventListener('pause', () => { this.renderPlayBtn(); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
+        video.addEventListener('play', () => { this.renderPlayBtn(); overlay.classList.add('is-playing'); });
+        video.addEventListener('pause', () => { this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
         video.addEventListener('waiting', () => this.loader(true));
         video.addEventListener('playing', () => this.loader(false));
         video.addEventListener('canplay', () => this.loader(false));
         video.addEventListener('timeupdate', () => this.renderProgress());
         video.addEventListener('progress', () => this.renderBuffered());
-        video.addEventListener('ended', () => { this.renderPlayBtn(); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
+        video.addEventListener('ended', () => { this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
 
         document.getElementById('playerQuality').addEventListener('change', e => this.loadStream(+e.target.value));
+
+        // Center cluster: skip ±10s and big play
+        document.getElementById('skipBack').addEventListener('click', () => { video.currentTime -= 10; show(); });
+        document.getElementById('skipFwd').addEventListener('click', () => { video.currentTime += 10; show(); });
+        document.getElementById('bigPlayBtn').addEventListener('click', () => this.togglePlay());
 
         document.addEventListener('keydown', e => {
             if (!overlay.classList.contains('active')) return;
@@ -631,9 +636,11 @@ const CustomPlayer = {
 
     renderPlayBtn() {
         const v = document.getElementById('playerVideo');
-        document.getElementById('playPauseBtn').innerHTML = v.paused
-            ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`
-            : `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+        const playIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+        const pauseIcon = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+        document.getElementById('playPauseBtn').innerHTML = v.paused ? playIcon : pauseIcon;
+        const big = document.getElementById('bigPlayBtn');
+        if (big) big.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
     },
     renderMuteBtn() {
         const v = document.getElementById('playerVideo');
