@@ -276,6 +276,7 @@ const StreamAPI = {
         const idData = await idRes.json();
         if (!idRes.ok) throw new Error(idData.message || 'Could not get IMDB ID');
         const imdbId = idData.imdbId;
+        this.lastImdbId = imdbId;
 
         // 2. Torrentio first (aggregates many indexers + season packs w/ fileIdx)
         let streams = await this._torrentio(imdbId, type, season, episode);
@@ -402,6 +403,7 @@ const CustomPlayer = {
     current: null,      // { id, type, season, episode, title }
     resumeAt: 0,        // seconds to resume to on next loadedmetadata
     _lastSave: 0,       // throttle for savePosition
+    subOn: localStorage.getItem('hesp_subs') !== '0', // subtitles on by default
     _retryFn: null,
 
     init() {
@@ -472,6 +474,8 @@ const CustomPlayer = {
 
         document.getElementById('playerQuality').addEventListener('change', e => this.loadStream(+e.target.value));
 
+        document.getElementById('ccBtn').addEventListener('click', () => this.toggleSubs());
+
         // Center cluster: skip ±10s and big play
         document.getElementById('skipBack').addEventListener('click', () => { video.currentTime -= 10; show(); });
         document.getElementById('skipFwd').addEventListener('click', () => { video.currentTime += 10; show(); });
@@ -512,6 +516,8 @@ const CustomPlayer = {
             sel.style.display = streams.length > 1 ? 'block' : 'none';
 
             this.loadStream(0);
+            // Fetch subtitles in parallel (non-blocking)
+            this.loadSubtitles(StreamAPI.lastImdbId, type, season, episode);
         } catch (e) {
             console.error('[Player]', e);
             this.loader(false);
@@ -675,6 +681,51 @@ const CustomPlayer = {
         const v = document.getElementById('playerVideo');
         localStorage.setItem('hesp_volume', v.volume);
         localStorage.setItem('hesp_muted', v.muted ? '1' : '0');
+    },
+
+    async loadSubtitles(imdbId, type, season, episode) {
+        const video = document.getElementById('playerVideo');
+        // Clear any previous track
+        [...video.querySelectorAll('track')].forEach(t => t.remove());
+        this._subReady = false;
+        document.getElementById('ccBtn').style.display = 'none';
+        if (!imdbId) return;
+        try {
+            const base = CONFIG.CONSUMET_BASE.replace(/\/$/, '');
+            let url = `${base}/subtitles/${imdbId}?lang=en`;
+            if (type === 'tv') url += `&season=${season}&episode=${episode}`;
+            const r = await fetch(url, { headers: API_HEADERS });
+            if (!r.ok) return; // no subs / not configured — leave CC hidden
+            const vtt = await r.text();
+            const blob = new Blob([vtt], { type: 'text/vtt' });
+            const track = document.createElement('track');
+            track.kind = 'subtitles'; track.label = 'English'; track.srclang = 'en';
+            track.src = URL.createObjectURL(blob);
+            video.appendChild(track);
+            // Browsers need a tick before textTracks[0] exists
+            setTimeout(() => {
+                const tt = video.textTracks[0];
+                if (tt) tt.mode = this.subOn ? 'showing' : 'hidden';
+            }, 100);
+            this._subReady = true;
+            document.getElementById('ccBtn').style.display = 'flex';
+            this.renderCcBtn();
+        } catch (e) { /* ignore */ }
+    },
+
+    toggleSubs() {
+        const video = document.getElementById('playerVideo');
+        const tt = video.textTracks[0];
+        if (!tt) return;
+        this.subOn = !this.subOn;
+        tt.mode = this.subOn ? 'showing' : 'hidden';
+        localStorage.setItem('hesp_subs', this.subOn ? '1' : '0');
+        this.renderCcBtn();
+    },
+
+    renderCcBtn() {
+        const btn = document.getElementById('ccBtn');
+        if (btn) btn.style.color = (this.subOn && this._subReady) ? 'var(--accent)' : 'rgba(255,255,255,0.85)';
     },
 
     // Persist playback position (throttled to ~5s) so we can resume later
