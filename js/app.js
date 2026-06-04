@@ -427,7 +427,6 @@ const CustomPlayer = {
         video.addEventListener('ended', () => { this.renderPlayBtn(); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
 
         document.getElementById('playerQuality').addEventListener('change', e => this.loadStream(+e.target.value));
-        document.getElementById('watchTogetherBtn').addEventListener('click', () => WatchTogether.togglePanel());
 
         document.addEventListener('keydown', e => {
             if (!overlay.classList.contains('active')) return;
@@ -592,7 +591,6 @@ const CustomPlayer = {
         clearTimeout(this.hideTimer);
         document.getElementById('playerUI')?.classList.remove('visible');
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        WatchTogether.leaveRoom();
     },
 
     togglePlay() {
@@ -678,134 +676,6 @@ const CustomPlayer = {
     fmt(s) {
         s = Math.floor(s);
         return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    },
-};
-
-// ------------------------------------------------------------------
-// WATCH TOGETHER
-// ------------------------------------------------------------------
-const WatchTogether = {
-    socket: null,
-    roomCode: null,
-    isHost: false,
-    syncing: false,
-
-    connect() {
-        if (this.socket) return;
-        this.socket = io(CONFIG.CONSUMET_BASE, { extraHeaders: API_HEADERS });
-
-        this.socket.on('player:sync', ({ action, currentTime }) => {
-            if (this.syncing) return;
-            const video = document.getElementById('playerVideo');
-            if (!video) return;
-            this.syncing = true;
-            if (action === 'play') { video.currentTime = currentTime; video.play().catch(() => {}); }
-            else if (action === 'pause') { video.currentTime = currentTime; video.pause(); }
-            else if (action === 'seek') { video.currentTime = currentTime; }
-            setTimeout(() => { this.syncing = false; }, 500);
-        });
-
-        this.socket.on('room:member-joined', () => {
-            this.updatePanel('A friend joined!');
-        });
-        this.socket.on('room:member-left', () => {
-            this.updatePanel('A friend left');
-        });
-        this.socket.on('room:request-state', ({ for: forId }) => {
-            const video = document.getElementById('playerVideo');
-            if (!video) return;
-            this.socket.emit('room:state', { for: forId, currentTime: video.currentTime, paused: video.paused });
-        });
-        this.socket.on('room:sync-state', ({ currentTime, paused }) => {
-            const video = document.getElementById('playerVideo');
-            if (!video) return;
-            video.currentTime = currentTime;
-            if (!paused) video.play().catch(() => {});
-            else video.pause();
-        });
-    },
-
-    hookVideo() {
-        const video = document.getElementById('playerVideo');
-        if (!video || video._wtHooked) return;
-        video._wtHooked = true;
-        video.addEventListener('play', () => {
-            if (this.roomCode && !this.syncing) this.emit('play');
-        });
-        video.addEventListener('pause', () => {
-            if (this.roomCode && !this.syncing) this.emit('pause');
-        });
-        video.addEventListener('seeked', () => {
-            if (this.roomCode && !this.syncing) this.emit('seek');
-        });
-    },
-
-    emit(action) {
-        const video = document.getElementById('playerVideo');
-        if (!this.socket || !this.roomCode || !video) return;
-        this.socket.emit('player:sync', { action, currentTime: video.currentTime });
-    },
-
-    createRoom() {
-        this.connect();
-        const cached = state.allItems.find(i => App._currentId && i.id === App._currentId);
-        const stream = CustomPlayer.streams[0];
-        this.socket.emit('room:create', {
-            title: cached?.title || '',
-            magnet: stream?.magnet || '',
-            fileIdx: stream?.fileIdx || 0,
-        }, ({ code }) => {
-            this.roomCode = code;
-            this.isHost = true;
-            this.showRoom(code);
-            this.hookVideo();
-        });
-    },
-
-    joinRoom(code) {
-        this.connect();
-        this.socket.emit('room:join', { code }, ({ error, room }) => {
-            if (error) { alert(error); return; }
-            this.roomCode = code.toUpperCase();
-            this.isHost = false;
-            this.showRoom(code.toUpperCase());
-            this.hookVideo();
-        });
-    },
-
-    leaveRoom() {
-        this.roomCode = null;
-        this.isHost = false;
-        const panel = document.getElementById('watchTogetherPanel');
-        if (panel) panel.style.display = 'none';
-        const video = document.getElementById('playerVideo');
-        if (video) video._wtHooked = false;
-    },
-
-    togglePanel() {
-        const panel = document.getElementById('watchTogetherPanel');
-        if (!panel) return;
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    },
-
-    showRoom(code) {
-        const info = document.getElementById('wtRoomInfo');
-        const codeEl = document.getElementById('wtRoomCode');
-        if (info) info.style.display = 'block';
-        if (codeEl) codeEl.textContent = code;
-    },
-
-    updatePanel(msg) {
-        const el = document.getElementById('wtMembers');
-        if (el) { el.textContent = msg; setTimeout(() => { el.textContent = ''; }, 3000); }
-    },
-
-    setup() {
-        document.getElementById('wtCreateBtn')?.addEventListener('click', () => this.createRoom());
-        document.getElementById('wtJoinBtn')?.addEventListener('click', () => {
-            const code = document.getElementById('wtJoinInput')?.value.trim();
-            if (code) this.joinRoom(code);
-        });
     },
 };
 
@@ -1013,7 +883,6 @@ const App = {
         this.setupSearch();
         this.setupModals();
         CustomPlayer.init();
-        WatchTogether.setup();
         await this.navigate('home');
     },
 
@@ -1043,7 +912,7 @@ const App = {
         const launchApp = () => {
             overlay.classList.add('hidden');
             this.showApp();
-            this.setupNav(); this.setupSearch(); this.setupModals(); CustomPlayer.init(); WatchTogether.setup();
+            this.setupNav(); this.setupSearch(); this.setupModals(); CustomPlayer.init();
             this.navigate('home');
         };
 
