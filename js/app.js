@@ -770,7 +770,28 @@ const CustomPlayer = {
 
     toggleFs() {
         const el = document.getElementById('playerOverlay');
-        document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : el.requestFullscreen().catch(() => {});
+        const video = document.getElementById('playerVideo');
+
+        // Already in standard fullscreen → exit
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            return;
+        }
+
+        // Standard Fullscreen API (desktop, Android Chrome) — fullscreens our custom UI
+        if (el.requestFullscreen) {
+            el.requestFullscreen().catch(() => this.iosFullscreen(video));
+        } else if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+        } else {
+            // iOS Safari: only the <video> element can go fullscreen (native controls)
+            this.iosFullscreen(video);
+        }
+    },
+
+    iosFullscreen(video) {
+        if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+        else if (video.webkitSupportsFullscreen) video.webkitEnterFullscreen();
     },
 
     startSeek(e) { this.seeking = true; this.doSeek(e); },
