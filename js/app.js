@@ -1049,6 +1049,7 @@ function renderEpisodes(showId, episodes) {
 // ------------------------------------------------------------------
 const App = {
     async init() {
+        this.setupButtonGlow();
         this.setupAuth();
         if (!Auth.loggedIn()) return;
         this.showApp();
@@ -1057,6 +1058,17 @@ const App = {
         this.setupModals();
         CustomPlayer.init();
         await this.navigate('home');
+    },
+
+    // Cursor-following gradient sheen on buttons (delegated → works for dynamic buttons too)
+    setupButtonGlow() {
+        document.addEventListener('pointermove', e => {
+            const btn = e.target.closest('.btn');
+            if (!btn) return;
+            const r = btn.getBoundingClientRect();
+            btn.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+            btn.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+        }, { passive: true });
     },
 
     setupAuth() {
