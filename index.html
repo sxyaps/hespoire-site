@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
     <link href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=7">
+    <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 
@@ -139,18 +139,10 @@
                 <select class="player-quality-select" id="playerQuality" style="display:none"></select>
             </div>
 
-            <!-- Center: click-to-toggle + skip/play cluster -->
+            <!-- Center: click-to-toggle + play button -->
             <div class="player-click-zone" id="playerClickZone"></div>
             <div class="player-center" id="playerCenter">
-                <button class="pc-skip" id="skipBack" title="Back 10s">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg>
-                    <span>10</span>
-                </button>
                 <button class="pc-play" id="bigPlayBtn"></button>
-                <button class="pc-skip" id="skipFwd" title="Forward 10s">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 17l5-5-5-5"/><path d="M6 17l5-5-5-5"/></svg>
-                    <span>10</span>
-                </button>
             </div>
 
             <!-- Bottom controls (floating glass bar) -->
@@ -193,6 +185,6 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-    <script src="js/app.js?v=19"></script>
+    <script src="js/app.js?v=20"></script>
 </body>
 </html>

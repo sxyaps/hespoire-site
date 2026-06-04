@@ -460,11 +460,10 @@ const CustomPlayer = {
         video.addEventListener('canplay', () => this.loader(false));
         video.addEventListener('timeupdate', () => { this.renderProgress(); this.savePosition(); });
         video.addEventListener('progress', () => this.renderBuffered());
-        // Resume where the user left off
+        // Resume where the user left off (direct mp4; HLS uses Hls startPosition)
         video.addEventListener('loadedmetadata', () => {
             const r = this.resumeAt || 0;
-            if (r > 10 && r < video.duration - 15) { try { video.currentTime = r; } catch {} }
-            this.resumeAt = 0;
+            if (!this.hls && r > 10 && r < video.duration - 15) { try { video.currentTime = r; } catch {} }
         });
         video.addEventListener('ended', () => {
             this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer);
@@ -475,10 +474,6 @@ const CustomPlayer = {
         document.getElementById('playerQuality').addEventListener('change', e => this.loadStream(+e.target.value));
 
         document.getElementById('ccBtn').addEventListener('click', () => this.toggleSubs());
-
-        // Center cluster: skip ±10s and big play
-        document.getElementById('skipBack').addEventListener('click', () => { video.currentTime -= 10; show(); });
-        document.getElementById('skipFwd').addEventListener('click', () => { video.currentTime += 10; show(); });
         document.getElementById('bigPlayBtn').addEventListener('click', () => this.togglePlay());
 
         document.addEventListener('keydown', e => {
@@ -579,6 +574,8 @@ const CustomPlayer = {
                             levelLoadingMaxRetry: 6,
                             fragLoadingMaxRetry: 8,
                             fragLoadingRetryDelay: 1000,
+                            // Resume where the user left off (hls.js handles the seek)
+                            startPosition: (this.resumeAt > 10) ? this.resumeAt : -1,
                         });
                         this._hlsRecover = 0;
                         this.hls.loadSource(full);
@@ -833,6 +830,7 @@ const CustomPlayer = {
     loader(show) {
         const el = document.getElementById('playerLoader');
         if (el) el.style.display = show ? 'flex' : 'none';
+        document.getElementById('playerOverlay')?.classList.toggle('is-loading', !!show);
     },
     err(show, msg = '') {
         const el = document.getElementById('playerErr');
