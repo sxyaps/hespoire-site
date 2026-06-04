@@ -1259,3 +1259,107 @@ img { display: block; max-width: 100%; }
 @media (max-width: 640px) {
     .auto-next-bar { right: 12px; left: 12px; bottom: 96px; justify-content: space-between; }
 }
+
+/* ============================================
+   LIQUID GLASS — site-wide frosted surfaces
+   ============================================ */
+
+/* Navbar: deeper frosted glass when scrolled */
+.navbar.scrolled {
+    background: rgba(0, 16, 32, 0.55);
+    backdrop-filter: blur(22px) saturate(1.6);
+    -webkit-backdrop-filter: blur(22px) saturate(1.6);
+    border-bottom: 1px solid rgba(168,230,255,0.12);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+}
+
+/* Ghost buttons */
+.btn-ghost {
+    background: rgba(168,230,255,0.06);
+    border: 1px solid rgba(168,230,255,0.15);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+}
+.btn-ghost:hover { background: rgba(168,230,255,0.12); border-color: rgba(168,230,255,0.28); }
+
+/* Genre pills */
+.genre-pill {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.genre-pill.active {
+    background: rgba(168,230,255,0.14);
+    border-color: rgba(168,230,255,0.35);
+    box-shadow: 0 0 18px rgba(168,230,255,0.12);
+}
+
+/* Search dropdown */
+.search-dropdown {
+    background: rgba(0,16,32,0.6);
+    backdrop-filter: blur(26px) saturate(1.5);
+    -webkit-backdrop-filter: blur(26px) saturate(1.5);
+    border: 1px solid rgba(168,230,255,0.16);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* Search inputs */
+.search-wrapper.open .search-input,
+.search-page-input {
+    background: rgba(168,230,255,0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.search-page-input:focus { background: rgba(168,230,255,0.08); }
+
+/* Detail modal — frosted sheet with top highlight */
+.modal-overlay { background: rgba(0,8,16,0.5); }
+.modal-sheet {
+    background: rgba(4, 18, 34, 0.72);
+    backdrop-filter: blur(30px) saturate(1.5);
+    -webkit-backdrop-filter: blur(30px) saturate(1.5);
+    border: 1px solid rgba(168,230,255,0.14);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+.detail-backdrop::after { background: linear-gradient(0deg, rgba(4,18,34,0.9), transparent); }
+.modal-close { background: rgba(0,16,32,0.5); }
+
+/* Detail tags / season select / episode rows */
+.detail-genre-tag {
+    background: rgba(168,230,255,0.06);
+    border-color: rgba(168,230,255,0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.season-select {
+    background: rgba(168,230,255,0.05);
+    border-color: rgba(168,230,255,0.14);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.episode-card {
+    background: rgba(168,230,255,0.03);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.episode-card:hover { background: rgba(168,230,255,0.08); border-color: rgba(168,230,255,0.18); }
+.episode-card.current { background: rgba(168,230,255,0.1); border-color: rgba(168,230,255,0.3); }
+
+/* User menu + load more */
+.user-btn {
+    background: rgba(168,230,255,0.05);
+    border-color: rgba(168,230,255,0.12);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.user-btn:hover { background: rgba(168,230,255,0.1); }
+.btn-load-more {
+    background: rgba(168,230,255,0.05);
+    border-color: rgba(168,230,255,0.14);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.btn-load-more:hover { background: rgba(168,230,255,0.1); }
+
+/* Auth card accent border to match */
+.auth-box { border-color: rgba(168,230,255,0.16); }
