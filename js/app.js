@@ -261,6 +261,11 @@ function parseQuality(s = '') {
 
 const API_HEADERS = { 'ngrok-skip-browser-warning': 'true' };
 
+// iOS detection (covers iPhone/iPad + iPadOS reporting as Mac with touch).
+// Every iOS browser — Safari, Opera, Chrome — is WebKit under the hood.
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+
 const StreamAPI = {
     async getStreams(tmdbId, type, season = 1, episode = 1) {
         if (!CONFIG.CONSUMET_BASE) throw new Error('No API configured');
@@ -566,7 +571,13 @@ const CustomPlayer = {
                 .then(({ url, message }) => {
                     if (!url) throw new Error(message || 'Transcode failed');
                     const full = base + url;
-                    if (window.Hls && Hls.isSupported()) {
+                    const nativeHls = video.canPlayType('application/vnd.apple.mpegurl');
+                    // On iOS, ALWAYS use native HLS (not hls.js/MSE) — it's the only
+                    // path that supports real fullscreen via webkitEnterFullscreen.
+                    if (IS_IOS && nativeHls) {
+                        video.src = full;
+                        video.play().catch(() => {});
+                    } else if (window.Hls && Hls.isSupported()) {
                         this.hls = new Hls({
                             maxBufferLength: 30,
                             manifestLoadingMaxRetry: 6,
