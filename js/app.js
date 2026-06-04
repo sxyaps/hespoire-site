@@ -407,7 +407,15 @@ const CustomPlayer = {
             video.volume = +volRange.value;
             video.muted = video.volume === 0;
             this.renderMuteBtn();
+            this.saveVolume();
         });
+
+        // Restore saved volume/mute from last session
+        const savedVol = parseFloat(localStorage.getItem('hesp_volume'));
+        const savedMuted = localStorage.getItem('hesp_muted') === '1';
+        if (!isNaN(savedVol)) { video.volume = savedVol; volRange.value = savedVol; }
+        video.muted = savedMuted;
+        this.renderMuteBtn();
 
         const seekEl = document.getElementById('playerSeek');
         seekEl.addEventListener('mousedown', e => this.startSeek(e));
@@ -442,8 +450,8 @@ const CustomPlayer = {
                 case 'm': e.preventDefault(); this.toggleMute(); break;
                 case 'ArrowRight': e.preventDefault(); video.currentTime += 10; show(); break;
                 case 'ArrowLeft': e.preventDefault(); video.currentTime -= 10; show(); break;
-                case 'ArrowUp': e.preventDefault(); video.volume = Math.min(1, video.volume + 0.1); volRange.value = video.volume; this.renderMuteBtn(); break;
-                case 'ArrowDown': e.preventDefault(); video.volume = Math.max(0, video.volume - 0.1); volRange.value = video.volume; this.renderMuteBtn(); break;
+                case 'ArrowUp': e.preventDefault(); video.volume = Math.min(1, video.volume + 0.1); volRange.value = video.volume; video.muted = false; this.renderMuteBtn(); this.saveVolume(); break;
+                case 'ArrowDown': e.preventDefault(); video.volume = Math.max(0, video.volume - 0.1); volRange.value = video.volume; this.renderMuteBtn(); this.saveVolume(); break;
             }
         });
 
@@ -609,6 +617,13 @@ const CustomPlayer = {
         if (!v.muted && v.volume === 0) v.volume = 0.5;
         document.getElementById('volRange').value = v.muted ? 0 : v.volume;
         this.renderMuteBtn();
+        this.saveVolume();
+    },
+
+    saveVolume() {
+        const v = document.getElementById('playerVideo');
+        localStorage.setItem('hesp_volume', v.volume);
+        localStorage.setItem('hesp_muted', v.muted ? '1' : '0');
     },
 
     toggleFs() {
