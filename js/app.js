@@ -656,7 +656,7 @@ const CustomPlayer = {
         clearTimeout(this._watchdog);
         if (this.hls) { try { this.hls.destroy(); } catch {} this.hls = null; }
         const video = document.getElementById('playerVideo');
-        if (video) { video.onerror = null; video.pause(); video.removeAttribute('src'); video.load(); }
+        if (video) { video.onerror = null; video.removeAttribute('controls'); video.pause(); video.removeAttribute('src'); video.load(); }
         const statsEl = document.getElementById('playerStats');
         if (statsEl) statsEl.textContent = '';
     },
@@ -783,26 +783,25 @@ const CustomPlayer = {
         const el = document.getElementById('playerOverlay');
         const video = document.getElementById('playerVideo');
 
-        // Already in standard fullscreen → exit
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        // iOS (incl. Opera/Chrome on iPhone — all WebKit): only the native <video>
+        // can fullscreen. Call it directly from this tap (gesture).
+        if (IS_IOS) {
+            if (typeof video.webkitEnterFullscreen === 'function') {
+                try { video.webkitEnterFullscreen(); return; } catch (e) {}
+            }
+            // Guaranteed fallback: expose iOS's own controls (their fullscreen button always works)
+            video.setAttribute('controls', 'controls');
             return;
         }
 
-        // Standard Fullscreen API (desktop, Android Chrome) — fullscreens our custom UI
-        if (el.requestFullscreen) {
-            el.requestFullscreen().catch(() => this.iosFullscreen(video));
+        // Desktop / Android — fullscreen our custom UI
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        } else if (el.requestFullscreen) {
+            el.requestFullscreen().catch(() => {});
         } else if (el.webkitRequestFullscreen) {
             el.webkitRequestFullscreen();
-        } else {
-            // iOS Safari: only the <video> element can go fullscreen (native controls)
-            this.iosFullscreen(video);
         }
-    },
-
-    iosFullscreen(video) {
-        if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
-        else if (video.webkitSupportsFullscreen) video.webkitEnterFullscreen();
     },
 
     startSeek(e) { this.seeking = true; this.doSeek(e); },
