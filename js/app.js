@@ -248,8 +248,13 @@ const StreamAPI = {
         if (!CONFIG.CONSUMET_BASE) throw new Error('No API configured');
         const base = CONFIG.CONSUMET_BASE.replace(/\/$/, '');
 
-        // 1. Get IMDB ID from our server
-        const idRes = await fetch(`${base}/imdb/${tmdbId}?type=${type}`, { headers: API_HEADERS });
+        // 1. Get IMDB ID from our server (also doubles as a reachability check)
+        let idRes;
+        try {
+            idRes = await fetch(`${base}/imdb/${tmdbId}?type=${type}`, { headers: API_HEADERS });
+        } catch (e) {
+            throw new Error('Hespoire server is offline right now. Please try again later.');
+        }
         const idData = await idRes.json();
         if (!idRes.ok) throw new Error(idData.message || 'Could not get IMDB ID');
         const imdbId = idData.imdbId;
@@ -522,7 +527,10 @@ const CustomPlayer = {
         if (stream.hls) {
             // MKV/HEVC/TV: server transcodes to HLS, play with hls.js
             fetch(`${base}/hls/start?magnet=${encodeURIComponent(stream.magnet)}${fidx}`, { headers: API_HEADERS })
-                .then(r => r.json())
+                .then(async r => {
+                    if (r.status === 503) { const d = await r.json().catch(() => ({})); throw { busy: true, msg: d.message || 'Server busy' }; }
+                    return r.json();
+                })
                 .then(({ url, message }) => {
                     if (!url) throw new Error(message || 'Transcode failed');
                     const full = base + url;
@@ -558,7 +566,16 @@ const CustomPlayer = {
                         throw new Error('HLS not supported in this browser');
                     }
                 })
-                .catch(() => this.loadStream(index + 1));
+                .catch(e => {
+                    if (e && e.busy) {
+                        // Server at capacity — don't spam other sources, tell the user
+                        clearTimeout(this._watchdog);
+                        this.loader(false);
+                        this.err(true, e.msg);
+                    } else {
+                        this.loadStream(index + 1);
+                    }
+                });
         } else {
             // mp4 (movies): server streams the file directly
             video.src = `${base}/stream?magnet=${encodeURIComponent(stream.magnet)}${fidx}`;
