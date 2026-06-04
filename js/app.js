@@ -143,7 +143,10 @@ const WatchHistory = {
     save(item) {
         const k = this._key();
         if (!k) return;
+        const prev = this.get(item.id, item.type);
         let hist = this.getAll().filter(h => !(h.id === item.id && h.type === item.type));
+        // Preserve resume position when re-opening the same episode
+        const sameEp = prev && prev.season === (item.season || null) && prev.episode === (item.episode || null);
         hist.unshift({
             id: item.id,
             type: item.type,
@@ -151,9 +154,24 @@ const WatchHistory = {
             poster: item.poster,
             season: item.season || null,
             episode: item.episode || null,
+            position: sameEp ? (prev.position || 0) : 0,
+            duration: sameEp ? (prev.duration || 0) : 0,
             at: Date.now(),
         });
         localStorage.setItem(k, JSON.stringify(hist.slice(0, 50)));
+    },
+
+    // Update the exact playback position for the currently-watching title
+    savePosition(id, type, position, duration) {
+        const k = this._key();
+        if (!k) return;
+        const hist = this.getAll();
+        const h = hist.find(x => x.id === id && x.type === type);
+        if (!h) return;
+        h.position = Math.floor(position);
+        h.duration = Math.floor(duration);
+        h.at = Date.now();
+        localStorage.setItem(k, JSON.stringify(hist));
     },
 
     get(id, type) {
@@ -381,6 +399,9 @@ const CustomPlayer = {
     hideTimer: null,
     seeking: false,
     streams: [],
+    current: null,      // { id, type, season, episode, title }
+    resumeAt: 0,        // seconds to resume to on next loadedmetadata
+    _lastSave: 0,       // throttle for savePosition
     _retryFn: null,
 
     init() {
@@ -431,13 +452,23 @@ const CustomPlayer = {
         document.addEventListener('touchend', () => this.endSeek());
 
         video.addEventListener('play', () => { this.renderPlayBtn(); overlay.classList.add('is-playing'); });
-        video.addEventListener('pause', () => { this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
+        video.addEventListener('pause', () => { this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer); this.savePosition(); });
         video.addEventListener('waiting', () => this.loader(true));
         video.addEventListener('playing', () => this.loader(false));
         video.addEventListener('canplay', () => this.loader(false));
-        video.addEventListener('timeupdate', () => this.renderProgress());
+        video.addEventListener('timeupdate', () => { this.renderProgress(); this.savePosition(); });
         video.addEventListener('progress', () => this.renderBuffered());
-        video.addEventListener('ended', () => { this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer); });
+        // Resume where the user left off
+        video.addEventListener('loadedmetadata', () => {
+            const r = this.resumeAt || 0;
+            if (r > 10 && r < video.duration - 15) { try { video.currentTime = r; } catch {} }
+            this.resumeAt = 0;
+        });
+        video.addEventListener('ended', () => {
+            this.renderPlayBtn(); overlay.classList.remove('is-playing'); ui.classList.add('visible'); clearTimeout(this.hideTimer);
+            if (this.current) WatchHistory.savePosition(this.current.id, this.current.type, 0, video.duration); // mark finished
+            this.maybeAutoNext();
+        });
 
         document.getElementById('playerQuality').addEventListener('change', e => this.loadStream(+e.target.value));
 
@@ -617,6 +648,9 @@ const CustomPlayer = {
     },
 
     destroy() {
+        this.savePosition(true);
+        clearInterval(this._autoNextTimer);
+        document.getElementById('autoNextBar')?.remove();
         this.destroyTorrent();
         clearTimeout(this.hideTimer);
         document.getElementById('playerUI')?.classList.remove('visible');
@@ -641,6 +675,49 @@ const CustomPlayer = {
         const v = document.getElementById('playerVideo');
         localStorage.setItem('hesp_volume', v.volume);
         localStorage.setItem('hesp_muted', v.muted ? '1' : '0');
+    },
+
+    // Persist playback position (throttled to ~5s) so we can resume later
+    savePosition(force) {
+        if (!this.current) return;
+        const v = document.getElementById('playerVideo');
+        if (!v.duration || isNaN(v.duration)) return;
+        const now = Date.now();
+        if (!force && now - this._lastSave < 5000) return;
+        this._lastSave = now;
+        WatchHistory.savePosition(this.current.id, this.current.type, v.currentTime, v.duration);
+    },
+
+    // When a TV episode ends, offer/auto-play the next one
+    maybeAutoNext() {
+        const c = this.current;
+        if (!c || c.type !== 'tv') return;
+        const nextEp = (c.episode || 1) + 1;
+        const overlay = document.getElementById('playerOverlay');
+
+        // Build a small "Up next" prompt with a countdown
+        let bar = document.getElementById('autoNextBar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'autoNextBar';
+            bar.className = 'auto-next-bar';
+            overlay.appendChild(bar);
+        }
+        let secs = 8;
+        const render = () => {
+            bar.innerHTML = `<span>Up next · S${c.season}E${nextEp}</span>
+                <button class="btn btn-primary auto-next-go">Play now (${secs})</button>
+                <button class="auto-next-cancel">Cancel</button>`;
+            bar.querySelector('.auto-next-go').onclick = () => { clearInterval(t); bar.remove(); App.openPlayer(c.id, 'tv', c.season, nextEp); };
+            bar.querySelector('.auto-next-cancel').onclick = () => { clearInterval(t); bar.remove(); };
+        };
+        render();
+        const t = setInterval(() => {
+            secs--;
+            if (secs <= 0) { clearInterval(t); bar.remove(); App.openPlayer(c.id, 'tv', c.season, nextEp); }
+            else render();
+        }, 1000);
+        this._autoNextTimer = t;
     },
 
     toggleFs() {
@@ -758,12 +835,18 @@ function renderCard(item) {
     let badge = '';
     if (hist && hist.season) badge = `<span class="card-resume-badge">S${hist.season}E${hist.episode}</span>`;
     else if (hist) badge = `<span class="card-resume-badge">Watched</span>`;
+    let progress = '';
+    if (hist && hist.position > 0 && hist.duration > 0) {
+        const pct = Math.min(100, (hist.position / hist.duration) * 100);
+        if (pct > 1 && pct < 97) progress = `<div class="card-progress"><div class="card-progress-fill" style="width:${pct}%"></div></div>`;
+    }
     return `
     <div class="card" onclick="App.openDetail(${item.id},'${item.type}')">
         <div class="card-poster">
             ${posterHTML(item)}
             ${item.rating >= 7.5 ? '<span class="card-quality">HD</span>' : ''}
             ${badge}
+            ${progress}
             <div class="card-play-icon">${playSVG(18)}</div>
             <div class="card-hover-overlay">
                 <span class="card-hover-title">${esc(item.title)}</span>
@@ -1248,6 +1331,10 @@ const App = {
             season: season || null,
             episode: episode || null,
         });
+
+        // Remember what's playing (for resume + auto-next)
+        CustomPlayer.current = { id, type, season: season || null, episode: episode || null, title: cached?.title || titleText };
+        CustomPlayer.resumeAt = WatchHistory.get(id, type)?.position || 0;
 
         overlay.classList.add('active');
         document.body.style.overflow = 'hidden';
