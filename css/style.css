@@ -660,10 +660,11 @@ img { display: block; max-width: 100%; }
 
 .player-overlay {
     position: fixed; inset: 0; z-index: 300;
-    background: radial-gradient(ellipse at center, #001628 0%, #000810 100%);
+    background: #000;  /* black so letterbox/pillarbox bars are clean, not blue */
     opacity: 0; visibility: hidden;
     transition: opacity 0.3s, visibility 0.3s;
 }
+.player-video { background: #000; }
 .player-overlay.active { opacity: 1; visibility: visible; }
 
 .player-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
