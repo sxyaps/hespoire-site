@@ -314,9 +314,16 @@ const StreamAPI = {
         // Rank: prefer well-seeded H.264 (plays via fast copy, no stutter)
         // over HEVC (needs CPU-heavy realtime re-encode). Fall back to HEVC only if needed.
         streams.sort((a, b) => {
+            // 1. Single-file releases first. High fileIdx = multi-file "pack" (huge
+            //    metadata → slow/stalls). Single files (low fileIdx) ready instantly.
+            const aPack = (a.fileIdx || 0) > 8 ? 1 : 0;
+            const bPack = (b.fileIdx || 0) > 8 ? 1 : 0;
+            if (aPack !== bPack) return aPack - bPack;
+            // 2. Prefer well-seeded H.264 (fast copy) over HEVC (CPU-heavy re-encode)
             const aGood = (!a.hevc && a.seeders >= 8) ? 1 : 0;
             const bGood = (!b.hevc && b.seeders >= 8) ? 1 : 0;
             if (aGood !== bGood) return bGood - aGood;
+            // 3. Then by seeders
             return b.seeders - a.seeders;
         });
 
