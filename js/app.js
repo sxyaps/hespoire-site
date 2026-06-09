@@ -285,7 +285,9 @@ const StreamAPI = {
             }
         }
         if (!idRes) throw new Error("Can't reach the server right now — check your connection and try again.");
-        const idData = await idRes.json();
+        let idData = {};
+        try { idData = await idRes.json(); } catch {}
+        if (idRes.status >= 500) throw new Error("The server isn't responding right now — it may be restarting. Try again in a moment.");
         if (!idRes.ok) throw new Error(idData.message || 'Could not get IMDB ID');
         const imdbId = idData.imdbId;
         this.lastImdbId = imdbId;
