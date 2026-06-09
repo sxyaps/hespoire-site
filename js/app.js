@@ -259,7 +259,9 @@ function parseQuality(s = '') {
     return 'SD';
 }
 
-const API_HEADERS = { 'ngrok-skip-browser-warning': 'true' };
+// Empty on purpose: we're on Cloudflare now (not ngrok), so no custom header is
+// needed — and dropping it keeps GETs "simple" (no CORS preflight = fewer failures).
+const API_HEADERS = {};
 
 // iOS detection (covers iPhone/iPad + iPadOS reporting as Mac with touch).
 // Every iOS browser — Safari, Opera, Chrome — is WebKit under the hood.
@@ -271,13 +273,18 @@ const StreamAPI = {
         if (!CONFIG.CONSUMET_BASE) throw new Error('No API configured');
         const base = CONFIG.CONSUMET_BASE.replace(/\/$/, '');
 
-        // 1. Get IMDB ID from our server (also doubles as a reachability check)
-        let idRes;
-        try {
-            idRes = await fetch(`${base}/imdb/${tmdbId}?type=${type}`, { headers: API_HEADERS });
-        } catch (e) {
-            throw new Error('Hespoire server is offline right now. Please try again later.');
+        // 1. Get IMDB ID from our server — retry a couple times before giving up,
+        //    so a single transient blip doesn't show a false "server down".
+        let idRes, netErr;
+        for (let attempt = 0; attempt < 3 && !idRes; attempt++) {
+            try {
+                idRes = await fetch(`${base}/imdb/${tmdbId}?type=${type}`, { headers: API_HEADERS });
+            } catch (e) {
+                netErr = e;
+                if (attempt < 2) await new Promise(r => setTimeout(r, 700));
+            }
         }
+        if (!idRes) throw new Error("Can't reach the server right now — check your connection and try again.");
         const idData = await idRes.json();
         if (!idRes.ok) throw new Error(idData.message || 'Could not get IMDB ID');
         const imdbId = idData.imdbId;
