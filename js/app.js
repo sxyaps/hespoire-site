@@ -553,14 +553,15 @@ const CustomPlayer = {
         this.loader(true);
         this.loaderText(index > 0 ? `Trying another source (${index + 1}/${this.streams.length})…` : 'Loading stream…');
 
-        // Watchdog: if playback hasn't started, fail over to the next source
+        // Watchdog: if playback hasn't started, fail over to the next source.
+        // Generous because torrent peer discovery + transcode warmup can take a while.
         clearTimeout(this._watchdog);
         this._watchdog = setTimeout(() => {
             if (video.readyState < 3) {
                 console.warn(`Source ${index} stalled, trying next`);
                 this.loadStream(index + 1);
             }
-        }, 70000);
+        }, 95000);
 
         const onPlaying = () => { clearTimeout(this._watchdog); video.removeEventListener('playing', onPlaying); };
         video.addEventListener('playing', onPlaying);
@@ -650,10 +651,16 @@ const CustomPlayer = {
             const base = CONFIG.CONSUMET_BASE.replace(/\/$/, '');
             const res = await fetch(`${base}/stream-stats?magnet=${encodeURIComponent(magnet)}`, { headers: API_HEADERS });
             const s = await res.json();
-            const el = document.getElementById('playerStats');
-            if (!el) return;
             const speed = (s.speed / 1024 / 1024).toFixed(1);
-            el.textContent = s.peers ? `↓ ${speed} MB/s · ${s.peers} peers` : 'Connecting to peers…';
+            const el = document.getElementById('playerStats');
+            if (el) el.textContent = s.peers ? `↓ ${speed} MB/s · ${s.peers} peers` : '';
+            // While the loader is up, give live feedback so it doesn't feel frozen
+            const loading = document.getElementById('playerOverlay')?.classList.contains('is-loading');
+            if (loading) {
+                this.loaderText(s.peers
+                    ? `Connecting… ${s.peers} peer${s.peers > 1 ? 's' : ''} · ${speed} MB/s`
+                    : 'Finding peers…');
+            }
         } catch (e) { /* ignore */ }
     },
 
